@@ -5,6 +5,8 @@ Thrust is derived from momentum flux of expelled water,
 modeled via isentropic expansion of the trapped air.
 """
 
+from __future__ import annotations
+
 import numpy as np
 
 

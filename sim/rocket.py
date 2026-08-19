@@ -2,8 +2,10 @@
 6-DOF rocket state and dynamics integrator.
 
 Coordinate system: x = downrange, y = lateral, z = altitude (up positive).
-Attitude represented as Euler angles [roll, pitch, yaw] for simplicity.
+Attitude represented as Euler angles [roll, pitch, yaw].
 """
+
+from __future__ import annotations
 
 import numpy as np
 from dataclasses import dataclass, field
@@ -19,6 +21,7 @@ class RocketState:
     euler: np.ndarray = field(default_factory=lambda: np.zeros(3))      # rad [roll, pitch, yaw]
     omega: np.ndarray = field(default_factory=lambda: np.zeros(3))      # rad/s body rates
     time: float = 0.0
+    phase: str = "LAUNCH"
 
     def copy(self) -> "RocketState":
         return RocketState(
@@ -27,33 +30,44 @@ class RocketState:
             euler=self.euler.copy(),
             omega=self.omega.copy(),
             time=self.time,
+            phase=self.phase,
         )
 
 
 class Rocket:
     """
-    Single-stage rocket with optional auxiliary thrusters.
-    Simplified: treats rocket as point mass with attitude for thrust direction.
+    Point-mass rocket with attitude dynamics.
+    Supports main engine + auxiliary thruster system.
     """
+
+    # Attitude slew rate limit (rad/s) — physically constrained by aerodynamics/cold-gas
+    MAX_SLEW_RATE = np.radians(90)  # 90°/s
 
     def __init__(
         self,
         main_engine: WaterRocketEngine,
+        aux_engine: WaterRocketEngine | None,
         aero: Aerodynamics,
-        moment_of_inertia: float = 0.05,  # kg·m² (rough estimate)
+        dry_mass_kg: float = 0.0,
+        moment_of_inertia: float = 0.05,  # kg·m²
     ):
         self.main_engine = main_engine
+        self.aux_engine = aux_engine        # None if no aux system
         self.aero = aero
-        self.Iy = moment_of_inertia  # pitch/yaw inertia
+        self.extra_dry_mass = dry_mass_kg
+        self.Iy = moment_of_inertia
 
         self.state = RocketState()
         self.history: list[RocketState] = []
 
     def mass(self) -> float:
-        return self.main_engine.total_mass
+        m = self.main_engine.total_mass + self.extra_dry_mass
+        if self.aux_engine:
+            m += self.aux_engine.total_mass
+        return m
 
     def thrust_direction(self) -> np.ndarray:
-        """Unit vector in direction of thrust (body +z axis in world frame)."""
+        """Unit vector along rocket body axis (thrust direction)."""
         pitch = self.state.euler[1]
         yaw = self.state.euler[2]
         return np.array([
@@ -62,28 +76,53 @@ class Rocket:
             np.sin(pitch),
         ])
 
-    def step(self, dt: float, gimbal_angle: float = 0.0) -> RocketState:
+    def step(
+        self,
+        dt: float,
+        target_euler: np.ndarray | None = None,
+        aux_throttle: float = 0.0,
+    ) -> RocketState:
         """
         Advance simulation by dt seconds.
-        gimbal_angle: nozzle deflection angle (rad), positive = pitch up correction.
+
+        target_euler: desired attitude — applied as a rate-limited slew.
+        aux_throttle: 0–1 throttle for auxiliary retro rockets.
         """
         s = self.state
         P_atm = atmospheric_pressure(s.position[2])
-        thrust, _ = self.main_engine.step(dt, P_atm)
 
+        # --- Attitude update (rate-limited slew toward target) ---
+        if target_euler is not None:
+            euler_error = target_euler - s.euler
+            max_delta = self.MAX_SLEW_RATE * dt
+            delta = np.clip(euler_error, -max_delta, max_delta)
+            s.euler += delta
+
+        # --- Main engine thrust ---
+        thrust_main, _ = self.main_engine.step(dt, P_atm)
         t_dir = self.thrust_direction()
-        F_thrust = thrust * t_dir
+        F_thrust = thrust_main * t_dir
+
+        # --- Auxiliary retro thrust (opposes velocity for braking) ---
+        F_aux = np.zeros(3)
+        if self.aux_engine and aux_throttle > 0.0:
+            thrust_aux, _ = self.aux_engine.step(dt * aux_throttle, P_atm)
+            speed = np.linalg.norm(s.velocity)
+            if speed > 1e-3:
+                # Aux rockets always fire against velocity (retro-braking)
+                F_aux = thrust_aux * aux_throttle * (-s.velocity / speed)
+
+        # --- Forces ---
         F_drag = self.aero.drag_force(s.velocity, RHO_AIR)
         F_gravity = gravity_vector() * self.mass()
+        F_total = F_thrust + F_aux + F_drag + F_gravity
 
-        F_total = F_thrust + F_drag + F_gravity
+        # --- Euler integration ---
         accel = F_total / self.mass()
-
-        # Simple Euler integration (will upgrade to RK4 later)
         s.velocity += accel * dt
         s.position += s.velocity * dt
 
-        # Ground collision
+        # Ground collision guard
         if s.position[2] < 0.0:
             s.position[2] = 0.0
             s.velocity = np.zeros(3)
