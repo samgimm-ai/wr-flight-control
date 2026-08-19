@@ -1,0 +1,29 @@
+# 60m 수직 착륙 기본 시나리오
+
+target:
+  distance_m: 60.0        # 수평 거리 (m)
+  radius_m: 1.0           # 과녁 반경 (m)
+
+main_rocket:
+  bottle_volume_L: 2.0    # 병 부피 (L)
+  water_ratio: 0.33       # 물 비율 (부피 기준, 최적 약 1/3)
+  pressure_psi: 100.0     # 초기 압력
+  nozzle_diameter_mm: 9.0 # 노즐 직경
+  dry_mass_kg: 0.3        # 빈 병 + 구조체 질량
+
+aux_rocket:
+  count: 4                # 보조 로켓 개수 (측면 × 4)
+  bottle_volume_L: 0.25   # 각 보조 로켓 부피
+  water_ratio: 0.33
+  pressure_psi: 80.0
+  nozzle_diameter_mm: 5.0
+
+environment:
+  gravity_ms2: 9.81
+  air_density_kgm3: 1.225
+  wind_speed_ms: 0.0      # 초기 시뮬레이션은 무풍
+  wind_direction_deg: 0.0
+
+launch:
+  angle_deg: 45.0         # 발사각 (최적화 대상)
+  altitude_m: 0.0
