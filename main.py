@@ -173,6 +173,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Water Rocket Flight Simulator")
     parser.add_argument("--scenario", default="scenarios/baseline.yaml")
     parser.add_argument("--optimize", action="store_true", help="Find optimal launch angle")
+    parser.add_argument("--sweep", action="store_true", help="Parameter sweep for minimum specs")
     parser.add_argument("--angle", type=float, default=None, help="Override launch angle (deg)")
     args = parser.parse_args()
 
@@ -180,6 +181,10 @@ if __name__ == "__main__":
 
     if args.optimize:
         run_optimize(args.scenario)
+    elif args.sweep:
+        from sim.param_sweep import run_sweep
+        cfg = load_scenario(args.scenario)
+        run_sweep(cfg)
     else:
         cfg = load_scenario(args.scenario)
         result = run_simulation(cfg, angle_deg=args.angle, verbose=True)
