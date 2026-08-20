@@ -20,12 +20,12 @@ from pydantic import BaseModel, Field
 
 app = FastAPI(title="Water Rocket Simulator")
 
-_HTML = (Path(__file__).parent / "web" / "index.html").read_text(encoding="utf-8")
+_HTML_PATH = Path(__file__).parent / "web" / "index.html"
 
 
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return _HTML
+    return _HTML_PATH.read_text(encoding="utf-8")
 
 
 # ── Request / Response models ────────────────────────────────────────────────
