@@ -7,22 +7,15 @@ target:
 main_rocket:
   bottle_volume_L: 2.0    # 병 부피 (L)
   water_ratio: 0.33       # 물 비율 (부피 기준, 최적 약 1/3)
-  pressure_psi: 100.0     # 초기 압력
+  pressure_psi: 120.0     # 초기 압력 (60m 도달 최소 사양)
   nozzle_diameter_mm: 9.0 # 노즐 직경
   dry_mass_kg: 0.3        # 빈 병 + 구조체 질량
-
-aux_rocket:
-  count: 4                # 보조 로켓 개수 (측면 × 4)
-  bottle_volume_L: 0.25   # 각 보조 로켓 부피
-  water_ratio: 0.33
-  pressure_psi: 80.0
-  nozzle_diameter_mm: 5.0
 
 environment:
   gravity_ms2: 9.81
   air_density_kgm3: 1.225
-  wind_speed_ms: 0.0      # 초기 시뮬레이션은 무풍
-  wind_direction_deg: 0.0
+  wind_speed_ms: 0.0        # 초기 시뮬레이션은 무풍
+  wind_direction_deg: 0.0   # 0°=순풍, 90°=좌측횡풍, 180°=정면역풍
 
 launch:
   angle_deg: 45.0         # 발사각 (최적화 대상)

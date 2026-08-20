@@ -81,6 +81,7 @@ class Rocket:
         dt: float,
         target_euler: np.ndarray | None = None,
         aux_throttle: float = 0.0,
+        wind_velocity: np.ndarray | None = None,
     ) -> RocketState:
         """
         Advance simulation by dt seconds.
@@ -113,7 +114,7 @@ class Rocket:
             F_aux = thrust_aux * aux_throttle * nozzle_dir
 
         # --- Forces ---
-        F_drag = self.aero.drag_force(s.velocity, RHO_AIR)
+        F_drag = self.aero.drag_force(s.velocity, RHO_AIR, wind_velocity)
         F_gravity = gravity_vector() * self.mass()
         F_total = F_thrust + F_aux + F_drag + F_gravity
 

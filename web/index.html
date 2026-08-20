@@ -1,0 +1,1012 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Water Rocket Simulator</title>
+<style>
+:root {
+  --bg:          #0d1b2a;
+  --panel:       #152238;
+  --panel2:      #1a2d46;
+  --border:      #2a3f5f;
+  --accent:      #4fc3f7;
+  --accent2:     #0288d1;
+  --success:     #66bb6a;
+  --danger:      #ef5350;
+  --warning:     #ffa726;
+  --text:        #dce8f5;
+  --text-muted:  #7a9bbf;
+  --input-bg:    #0d1b2a;
+  --radius:      8px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: 'Segoe UI', system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────── */
+header {
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+header h1 { font-size: 1.1rem; font-weight: 600; color: var(--accent); }
+header .subtitle { font-size: 0.78rem; color: var(--text-muted); }
+
+/* ── Layout ──────────────────────────────────────── */
+.layout {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+/* ── Left panel ──────────────────────────────────── */
+.sidebar {
+  width: 300px;
+  min-width: 300px;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.section {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--border);
+}
+.section-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  color: var(--accent);
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+/* Generic row */
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  gap: 8px;
+}
+.row label {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  min-width: 110px;
+}
+.row .val {
+  font-size: 0.78rem;
+  color: var(--text);
+  min-width: 52px;
+  text-align: right;
+}
+
+/* Number input */
+input[type=number] {
+  background: var(--input-bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 3px 6px;
+  width: 70px;
+  text-align: right;
+}
+input[type=number]:focus { outline: 1px solid var(--accent); }
+
+/* Plain slider (settings) */
+.plain-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  outline: none;
+  cursor: pointer;
+}
+.plain-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px; height: 13px;
+  border-radius: 50%;
+  background: var(--accent2);
+  cursor: pointer;
+}
+
+/* Wind toggle */
+.toggle-group {
+  display: flex;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.toggle-group button {
+  flex: 1;
+  padding: 4px 0;
+  font-size: 0.75rem;
+  border: none;
+  background: var(--input-bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.toggle-group button.active {
+  background: var(--accent2);
+  color: #fff;
+}
+
+/* ── Adjustable controls (slider + buttons) ───────── */
+.ctrl-row {
+  margin-bottom: 10px;
+}
+.ctrl-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.ctrl-label span:first-child { font-size: 0.78rem; color: var(--text-muted); }
+.ctrl-label .ctrl-val {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--accent);
+}
+.ctrl-track {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.adj-btn {
+  width: 24px; height: 24px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--panel2);
+  color: var(--text);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  transition: background 0.1s;
+}
+.adj-btn:hover { background: var(--accent2); }
+.adj-btn:active { background: var(--accent); }
+
+.ctrl-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  flex: 1;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+.ctrl-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 16px; height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 0 6px rgba(79,195,247,0.4);
+}
+
+/* ── Action buttons ──────────────────────────────── */
+.actions {
+  padding: 14px;
+  display: flex;
+  gap: 8px;
+  margin-top: auto;
+  flex-shrink: 0;
+}
+.btn {
+  flex: 1;
+  padding: 10px;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s, transform 0.1s;
+}
+.btn:active { transform: scale(0.97); }
+.btn-reset  { background: var(--panel2); color: var(--text-muted); border: 1px solid var(--border); }
+.btn-launch { background: var(--accent2); color: #fff; }
+.btn-launch:hover { background: var(--accent); }
+.btn-launch:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Right display ───────────────────────────────── */
+.display {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 12px;
+  gap: 10px;
+}
+
+.canvas-box {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 10px 6px;
+  flex-shrink: 0;
+}
+.canvas-box h2 {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+canvas { display: block; border-radius: 4px; }
+
+.bottom-row {
+  display: flex;
+  gap: 10px;
+  flex: 1;
+  min-height: 0;
+}
+.bottom-row .canvas-box { flex: 0 0 auto; }
+.bottom-row .canvas-box canvas { width: 100%; height: auto; }
+
+/* ── Stats panel ──────────────────────────────────── */
+.stats-panel {
+  flex: 1;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 10px 14px;
+}
+.stats-panel h2 {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+.stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.stat-item {}
+.stat-item .stat-label { font-size: 0.7rem; color: var(--text-muted); margin-bottom: 2px; }
+.stat-item .stat-value { font-size: 1.4rem; font-weight: 700; color: var(--text); }
+.stat-item .stat-unit  { font-size: 0.7rem; color: var(--text-muted); margin-left: 3px; }
+
+.result-badge {
+  margin-top: 14px;
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+.result-badge.success { background: rgba(102,187,106,0.15); color: var(--success); border: 1px solid var(--success); }
+.result-badge.miss    { background: rgba(239,83,80,0.12);   color: var(--danger);  border: 1px solid var(--danger); }
+.result-badge.neutral { background: var(--panel2); color: var(--text-muted); border: 1px solid var(--border); }
+
+.wind-info {
+  margin-top: 10px;
+  padding: 6px 10px;
+  background: var(--panel2);
+  border-radius: 4px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+}
+
+/* ── Status bar ──────────────────────────────────── */
+.status-bar {
+  position: fixed;
+  bottom: 0; left: 300px; right: 0;
+  background: var(--panel2);
+  border-top: 1px solid var(--border);
+  padding: 4px 12px;
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  flex-shrink: 0;
+}
+.status-dot.running { background: var(--warning); animation: pulse 0.8s infinite; }
+.status-dot.success { background: var(--success); }
+.status-dot.miss    { background: var(--danger); }
+
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+</style>
+</head>
+<body>
+
+<header>
+  <span style="font-size:1.4rem">🚀</span>
+  <div>
+    <h1>Water Rocket Simulator</h1>
+    <div class="subtitle">탄도 비행 · 60m 과녁 정밀 착지</div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ── Left sidebar ── -->
+  <aside class="sidebar">
+
+    <!-- Environment -->
+    <div class="section">
+      <div class="section-title">환경 설정</div>
+
+      <div class="row">
+        <label>목표 거리</label>
+        <input id="target_distance_m" type="number" value="60" min="10" max="200" step="5">
+        <span class="val">m</span>
+      </div>
+
+      <div class="row">
+        <label>바람</label>
+        <div class="toggle-group">
+          <button id="windManual" class="active" onclick="setWindMode('manual')">수동</button>
+          <button id="windRandom" onclick="setWindMode('random')">랜덤</button>
+        </div>
+      </div>
+
+      <div id="windControls">
+        <div class="row">
+          <label>바람 속도</label>
+          <input type="range" class="plain-slider" id="wind_speed_ms" min="0" max="15" step="0.5" value="0"
+                 oninput="syncVal(this,'wind_speed_val')">
+          <span id="wind_speed_val" class="val">0.0 m/s</span>
+        </div>
+        <div class="row">
+          <label>바람 방향</label>
+          <input type="range" class="plain-slider" id="wind_dir_deg" min="0" max="360" step="5" value="0"
+                 oninput="syncVal(this,'wind_dir_val')">
+          <span id="wind_dir_val" class="val">0° <span style="font-size:0.65rem;color:var(--text-muted)">(순풍)</span></span>
+        </div>
+        <div style="font-size:0.68rem;color:var(--text-muted);margin-top:2px">
+          0°=순풍&nbsp;&nbsp;90°=좌횡풍&nbsp;&nbsp;180°=역풍
+        </div>
+      </div>
+    </div>
+
+    <!-- Rocket hardware -->
+    <div class="section">
+      <div class="section-title">로켓 사양</div>
+
+      <div class="row">
+        <label>병 용량</label>
+        <input type="range" class="plain-slider" id="bottle_volume_L" min="0.5" max="6" step="0.25" value="2"
+               oninput="syncVal(this,'bottle_vol_val')">
+        <span id="bottle_vol_val" class="val">2.0 L</span>
+      </div>
+      <div class="row">
+        <label>건조 질량</label>
+        <input type="range" class="plain-slider" id="dry_mass_kg" min="0.05" max="1.5" step="0.05" value="0.3"
+               oninput="syncVal(this,'dry_mass_val')">
+        <span id="dry_mass_val" class="val">0.30 kg</span>
+      </div>
+      <div class="row">
+        <label>노즐 직경</label>
+        <input type="range" class="plain-slider" id="nozzle_diameter_mm" min="3" max="20" step="0.5" value="9"
+               oninput="syncVal(this,'nozzle_val')">
+        <span id="nozzle_val" class="val">9.0 mm</span>
+      </div>
+      <div class="row">
+        <label>항력 계수 (Cd)</label>
+        <input type="range" class="plain-slider" id="Cd" min="0.1" max="1.5" step="0.05" value="0.5"
+               oninput="syncVal(this,'cd_val')">
+        <span id="cd_val" class="val">0.50</span>
+      </div>
+    </div>
+
+    <!-- Launch controls -->
+    <div class="section">
+      <div class="section-title">발사 파라미터 조정</div>
+
+      <!-- Water fill -->
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span>물 충전량</span>
+          <span class="ctrl-val" id="water_ratio_val">33 %</span>
+        </div>
+        <div class="ctrl-track">
+          <button class="adj-btn" onmousedown="startAdj('water_ratio',-0.01)" onmouseup="stopAdj()" onmouseleave="stopAdj()">−</button>
+          <input type="range" class="ctrl-slider" id="water_ratio" min="5" max="90" step="1" value="33"
+                 oninput="updateCtrl('water_ratio')">
+          <button class="adj-btn" onmousedown="startAdj('water_ratio', 0.01)" onmouseup="stopAdj()" onmouseleave="stopAdj()">+</button>
+        </div>
+      </div>
+
+      <!-- Pressure -->
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span>초기 압력</span>
+          <span class="ctrl-val" id="pressure_psi_val">120 PSI</span>
+        </div>
+        <div class="ctrl-track">
+          <button class="adj-btn" onmousedown="startAdj('pressure_psi',-1)" onmouseup="stopAdj()" onmouseleave="stopAdj()">−</button>
+          <input type="range" class="ctrl-slider" id="pressure_psi" min="20" max="300" step="1" value="120"
+                 oninput="updateCtrl('pressure_psi')">
+          <button class="adj-btn" onmousedown="startAdj('pressure_psi', 1)" onmouseup="stopAdj()" onmouseleave="stopAdj()">+</button>
+        </div>
+      </div>
+
+      <!-- Launch angle -->
+      <div class="ctrl-row">
+        <div class="ctrl-label">
+          <span>발사각</span>
+          <span class="ctrl-val" id="launch_angle_deg_val">72.0°</span>
+        </div>
+        <div class="ctrl-track">
+          <button class="adj-btn" onmousedown="startAdj('launch_angle_deg',-0.5)" onmouseup="stopAdj()" onmouseleave="stopAdj()">−</button>
+          <input type="range" class="ctrl-slider" id="launch_angle_deg" min="5" max="85" step="0.5" value="72"
+                 oninput="updateCtrl('launch_angle_deg')">
+          <button class="adj-btn" onmousedown="startAdj('launch_angle_deg', 0.5)" onmouseup="stopAdj()" onmouseleave="stopAdj()">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Buttons -->
+    <div class="actions">
+      <button class="btn btn-reset" onclick="resetAll()">초기화</button>
+      <button class="btn btn-launch" id="launchBtn" onclick="launch()">🚀 발사</button>
+    </div>
+
+  </aside>
+
+  <!-- ── Right display ── -->
+  <div class="display">
+
+    <!-- Side view -->
+    <div class="canvas-box" style="flex:1;min-height:0;display:flex;flex-direction:column;">
+      <h2>측면도 (Side View)</h2>
+      <canvas id="sideCanvas" style="flex:1;width:100%;"></canvas>
+    </div>
+
+    <!-- Bottom: top view + stats -->
+    <div class="bottom-row">
+      <div class="canvas-box">
+        <h2>상면도 (Top View)</h2>
+        <canvas id="topCanvas" width="240" height="200"></canvas>
+      </div>
+
+      <div class="stats-panel">
+        <h2>결과</h2>
+        <div class="stat-grid">
+          <div class="stat-item">
+            <div class="stat-label">착지 거리</div>
+            <div><span class="stat-value" id="s-range">—</span><span class="stat-unit">m</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">오차 거리</div>
+            <div><span class="stat-value" id="s-miss">—</span><span class="stat-unit">m</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">비행 시간</div>
+            <div><span class="stat-value" id="s-time">—</span><span class="stat-unit">s</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">최고 고도</div>
+            <div><span class="stat-value" id="s-alt">—</span><span class="stat-unit">m</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">최고 속도</div>
+            <div><span class="stat-value" id="s-speed">—</span><span class="stat-unit">m/s</span></div>
+          </div>
+          <div class="stat-item">
+            <div class="stat-label">연소 시간</div>
+            <div><span class="stat-value" id="s-burn">—</span><span class="stat-unit">s</span></div>
+          </div>
+        </div>
+        <div id="result-badge" class="result-badge neutral">시뮬레이션 대기 중</div>
+        <div id="wind-info" class="wind-info" style="display:none"></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- Status bar -->
+<div class="status-bar">
+  <div class="status-dot" id="statusDot"></div>
+  <span id="statusText">준비됨 — 파라미터를 설정하고 발사 버튼을 누르세요.</span>
+</div>
+
+<script>
+// ── Defaults ────────────────────────────────────────────────────────────────
+const DEFAULTS = {
+  target_distance_m: 60,
+  wind_speed_ms: 0,
+  wind_dir_deg: 0,
+  bottle_volume_L: 2.0,
+  dry_mass_kg: 0.30,
+  nozzle_diameter_mm: 9.0,
+  Cd: 0.5,
+  water_ratio: 33,        // stored as % (0-90)
+  pressure_psi: 120,
+  launch_angle_deg: 72.0,
+};
+
+let windMode = 'manual';
+let adjTimer = null;
+let simResult = null;
+let animFrame = null;
+
+// ── Sync helpers ─────────────────────────────────────────────────────────────
+function syncVal(el, valId) {
+  const v = parseFloat(el.value);
+  const id = el.id;
+  if (id === 'wind_speed_ms') {
+    document.getElementById(valId).innerHTML = v.toFixed(1) + ' m/s';
+  } else if (id === 'wind_dir_deg') {
+    const dir = windDirLabel(v);
+    document.getElementById(valId).innerHTML = `${v}° <span style="font-size:0.65rem;color:var(--text-muted)">(${dir})</span>`;
+  } else if (id === 'bottle_volume_L') {
+    document.getElementById(valId).textContent = v.toFixed(2) + ' L';
+  } else if (id === 'dry_mass_kg') {
+    document.getElementById(valId).textContent = v.toFixed(2) + ' kg';
+  } else if (id === 'nozzle_diameter_mm') {
+    document.getElementById(valId).textContent = v.toFixed(1) + ' mm';
+  } else if (id === 'Cd') {
+    document.getElementById(valId).textContent = v.toFixed(2);
+  }
+}
+
+function windDirLabel(deg) {
+  if (deg < 22.5 || deg >= 337.5) return '순풍';
+  if (deg < 67.5)  return '순풍+좌횡';
+  if (deg < 112.5) return '좌횡풍';
+  if (deg < 157.5) return '역풍+좌횡';
+  if (deg < 202.5) return '역풍';
+  if (deg < 247.5) return '역풍+우횡';
+  if (deg < 292.5) return '우횡풍';
+  return '순풍+우횡';
+}
+
+function updateCtrl(id) {
+  const el = document.getElementById(id);
+  const v = parseFloat(el.value);
+  if (id === 'water_ratio') {
+    document.getElementById('water_ratio_val').textContent = Math.round(v) + ' %';
+  } else if (id === 'pressure_psi') {
+    document.getElementById('pressure_psi_val').textContent = Math.round(v) + ' PSI';
+  } else if (id === 'launch_angle_deg') {
+    document.getElementById('launch_angle_deg_val').textContent = v.toFixed(1) + '°';
+  }
+}
+
+// ── Continuous +/- buttons ───────────────────────────────────────────────────
+function startAdj(id, delta) {
+  applyAdj(id, delta);
+  adjTimer = setInterval(() => applyAdj(id, delta), 120);
+}
+function stopAdj() { clearInterval(adjTimer); }
+function applyAdj(id, delta) {
+  const el = document.getElementById(id);
+  const min = parseFloat(el.min), max = parseFloat(el.max), step = parseFloat(el.step);
+  let v = parseFloat(el.value) + delta;
+  v = Math.round(v / step) * step;
+  v = Math.max(min, Math.min(max, v));
+  el.value = v;
+  updateCtrl(id);
+}
+
+// ── Wind mode ────────────────────────────────────────────────────────────────
+function setWindMode(mode) {
+  windMode = mode;
+  document.getElementById('windManual').classList.toggle('active', mode === 'manual');
+  document.getElementById('windRandom').classList.toggle('active', mode === 'random');
+  document.getElementById('windControls').style.opacity = mode === 'random' ? '0.4' : '1';
+  document.getElementById('windControls').style.pointerEvents = mode === 'random' ? 'none' : '';
+}
+
+// ── Reset ─────────────────────────────────────────────────────────────────────
+function resetAll() {
+  document.getElementById('target_distance_m').value = DEFAULTS.target_distance_m;
+  document.getElementById('wind_speed_ms').value = DEFAULTS.wind_speed_ms;
+  syncVal(document.getElementById('wind_speed_ms'), 'wind_speed_val');
+  document.getElementById('wind_dir_deg').value = DEFAULTS.wind_dir_deg;
+  syncVal(document.getElementById('wind_dir_deg'), 'wind_dir_val');
+  document.getElementById('bottle_volume_L').value = DEFAULTS.bottle_volume_L;
+  syncVal(document.getElementById('bottle_volume_L'), 'bottle_vol_val');
+  document.getElementById('dry_mass_kg').value = DEFAULTS.dry_mass_kg;
+  syncVal(document.getElementById('dry_mass_kg'), 'dry_mass_val');
+  document.getElementById('nozzle_diameter_mm').value = DEFAULTS.nozzle_diameter_mm;
+  syncVal(document.getElementById('nozzle_diameter_mm'), 'nozzle_val');
+  document.getElementById('Cd').value = DEFAULTS.Cd;
+  syncVal(document.getElementById('Cd'), 'cd_val');
+  document.getElementById('water_ratio').value = DEFAULTS.water_ratio;
+  updateCtrl('water_ratio');
+  document.getElementById('pressure_psi').value = DEFAULTS.pressure_psi;
+  updateCtrl('pressure_psi');
+  document.getElementById('launch_angle_deg').value = DEFAULTS.launch_angle_deg;
+  updateCtrl('launch_angle_deg');
+  setWindMode('manual');
+
+  simResult = null;
+  clearCanvases();
+  resetStats();
+  setStatus('', '초기화 완료');
+}
+
+// ── Build params ──────────────────────────────────────────────────────────────
+function getParams() {
+  return {
+    target_distance_m:  parseFloat(document.getElementById('target_distance_m').value),
+    wind_mode:          windMode,
+    wind_speed_ms:      parseFloat(document.getElementById('wind_speed_ms').value),
+    wind_dir_deg:       parseFloat(document.getElementById('wind_dir_deg').value),
+    bottle_volume_L:    parseFloat(document.getElementById('bottle_volume_L').value),
+    dry_mass_kg:        parseFloat(document.getElementById('dry_mass_kg').value),
+    nozzle_diameter_mm: parseFloat(document.getElementById('nozzle_diameter_mm').value),
+    Cd:                 parseFloat(document.getElementById('Cd').value),
+    water_ratio:        parseFloat(document.getElementById('water_ratio').value) / 100,
+    pressure_psi:       parseFloat(document.getElementById('pressure_psi').value),
+    launch_angle_deg:   parseFloat(document.getElementById('launch_angle_deg').value),
+  };
+}
+
+// ── Launch ─────────────────────────────────────────────────────────────────────
+async function launch() {
+  const btn = document.getElementById('launchBtn');
+  btn.disabled = true;
+  setStatus('running', '시뮬레이션 실행 중…');
+
+  if (animFrame) { cancelAnimationFrame(animFrame); animFrame = null; }
+
+  try {
+    const res = await fetch('/api/simulate', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify(getParams()),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    simResult = await res.json();
+    showWindInfo(simResult.wind);
+    animateTrajectory(simResult);
+  } catch (e) {
+    setStatus('', '오류: ' + e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// ── Canvas helpers ─────────────────────────────────────────────────────────────
+function clearCanvases() {
+  clearCanvas('sideCanvas');
+  clearCanvas('topCanvas');
+  drawSideIdle();
+  drawTopIdle();
+}
+
+function clearCanvas(id) {
+  const c = document.getElementById(id);
+  const ctx = c.getContext('2d');
+  ctx.clearRect(0, 0, c.width, c.height);
+}
+
+function setStatus(type, msg) {
+  const dot = document.getElementById('statusDot');
+  dot.className = 'status-dot' + (type ? ' ' + type : '');
+  document.getElementById('statusText').textContent = msg;
+}
+
+function resetStats() {
+  ['s-range','s-miss','s-time','s-alt','s-speed','s-burn'].forEach(id => {
+    document.getElementById(id).textContent = '—';
+  });
+  document.getElementById('result-badge').className = 'result-badge neutral';
+  document.getElementById('result-badge').textContent = '시뮬레이션 대기 중';
+  document.getElementById('wind-info').style.display = 'none';
+}
+
+function showWindInfo(wind) {
+  const el = document.getElementById('wind-info');
+  if (wind.speed_ms < 0.1) {
+    el.style.display = 'none';
+  } else {
+    el.style.display = 'block';
+    el.textContent = `💨 바람: ${wind.speed_ms} m/s · ${wind.dir_deg}° (${windDirLabel(wind.dir_deg)})`;
+  }
+}
+
+// ── Side view drawing ──────────────────────────────────────────────────────────
+function getSideScale(traj, targetX) {
+  const sideC = document.getElementById('sideCanvas');
+  const W = sideC.width, H = sideC.height;
+  const pad = { l: 50, r: 20, t: 24, b: 32 };
+  const maxX = Math.max(...traj.map(p => p.x), targetX) * 1.15;
+  const maxZ = Math.max(...traj.map(p => p.z)) * 1.3 || 20;
+  const sx = (W - pad.l - pad.r) / maxX;
+  const sz = (H - pad.t - pad.b) / maxZ;
+  const toC = (x, z) => ({
+    cx: pad.l + x * sx,
+    cy: H - pad.b - z * sz,
+  });
+  return { W, H, pad, sx, sz, toC, maxX, maxZ };
+}
+
+function drawSideBase(ctx, scale, targetX, traj) {
+  const { W, H, pad, toC } = scale;
+  // Background
+  ctx.fillStyle = '#08111e';
+  ctx.fillRect(0, 0, W, H);
+
+  // Grid
+  ctx.strokeStyle = '#1a2d46';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([3, 4]);
+  // Horizontal grid
+  for (let z = 0; z <= scale.maxZ; z += Math.ceil(scale.maxZ / 5)) {
+    const {cy} = toC(0, z);
+    ctx.beginPath(); ctx.moveTo(pad.l, cy); ctx.lineTo(W - pad.r, cy); ctx.stroke();
+    ctx.fillStyle = '#3a5a7a'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(z + 'm', pad.l - 4, cy + 3);
+  }
+  // Vertical grid
+  ctx.textAlign = 'center';
+  for (let x = 0; x <= scale.maxX; x += Math.ceil(scale.maxX / 6)) {
+    const {cx} = toC(x, 0);
+    ctx.beginPath(); ctx.moveTo(cx, pad.t); ctx.lineTo(cx, H - pad.b); ctx.stroke();
+    ctx.fillStyle = '#3a5a7a'; ctx.fillText(x + 'm', cx, H - pad.b + 12);
+  }
+  ctx.setLineDash([]);
+
+  // Ground
+  const groundY = toC(0, 0).cy;
+  const grad = ctx.createLinearGradient(0, groundY, 0, H);
+  grad.addColorStop(0, '#1a3a1a'); grad.addColorStop(1, '#0a1a0a');
+  ctx.fillStyle = grad;
+  ctx.fillRect(pad.l, groundY, W - pad.l - pad.r, H - groundY);
+  ctx.strokeStyle = '#2a5a2a'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(pad.l, groundY); ctx.lineTo(W - pad.r, groundY); ctx.stroke();
+
+  // Target line
+  const tc = toC(targetX, 0);
+  ctx.strokeStyle = 'rgba(239,83,80,0.6)'; ctx.lineWidth = 1.5;
+  ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(tc.cx, pad.t); ctx.lineTo(tc.cx, groundY); ctx.stroke();
+  ctx.setLineDash([]);
+  // Target flag
+  ctx.fillStyle = '#ef5350';
+  ctx.fillRect(tc.cx, groundY - 14, 2, 14);
+  ctx.beginPath();
+  ctx.moveTo(tc.cx + 2, groundY - 14);
+  ctx.lineTo(tc.cx + 12, groundY - 10);
+  ctx.lineTo(tc.cx + 2, groundY - 6);
+  ctx.closePath(); ctx.fill();
+  ctx.fillStyle = '#ef5350'; ctx.font = 'bold 9px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('⊙ ' + targetX + 'm', tc.cx + 4, groundY + 12);
+}
+
+function drawSideTrajectory(ctx, scale, traj, upTo) {
+  if (upTo < 1) return;
+  const { toC } = scale;
+
+  // Trail
+  ctx.lineWidth = 2; ctx.setLineDash([]);
+  for (let i = 1; i <= upTo; i++) {
+    const p0 = traj[i-1], p1 = traj[i];
+    const c0 = toC(p0.x, p0.z), c1 = toC(p1.x, p1.z);
+    ctx.strokeStyle = p1.phase === 'LAUNCH' ? '#ef9a9a' : '#4fc3f7';
+    ctx.beginPath(); ctx.moveTo(c0.cx, c0.cy); ctx.lineTo(c1.cx, c1.cy); ctx.stroke();
+  }
+
+  // Rocket dot
+  const p = traj[upTo];
+  const {cx, cy} = toC(p.x, p.z);
+  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 7);
+  grad.addColorStop(0, '#fff');
+  grad.addColorStop(0.4, '#4fc3f7');
+  grad.addColorStop(1, 'rgba(79,195,247,0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();
+}
+
+function drawSideLanding(ctx, scale, lx, lz, miss, targetX) {
+  const {toC} = scale;
+  const {cx, cy} = toC(lx, 0);
+  const color = miss <= 1 ? '#66bb6a' : '#ef5350';
+  // X marker
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(cx-7, cy-7); ctx.lineTo(cx+7, cy+7); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx+7, cy-7); ctx.lineTo(cx-7, cy+7); ctx.stroke();
+  // Label
+  ctx.fillStyle = color; ctx.font = '10px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText(`${lx.toFixed(1)}m (오차 ${miss.toFixed(1)}m)`, cx + 10, cy + 4);
+}
+
+function drawSideIdle() {
+  const c = document.getElementById('sideCanvas');
+  resizeSideCanvas();
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#08111e'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.fillStyle = '#1a3a1a'; ctx.fillRect(0, c.height - 40, c.width, 40);
+  ctx.fillStyle = '#3a5a7a'; ctx.font = '13px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('발사 버튼을 눌러 시뮬레이션을 시작하세요', c.width/2, c.height/2);
+}
+
+// ── Top view drawing ──────────────────────────────────────────────────────────
+function drawTopIdle() {
+  const c = document.getElementById('topCanvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  ctx.fillStyle = '#08111e'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#ef5350'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.arc(W/2, H/2, 20, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = '#3a5a7a'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('과녁', W/2, H/2 + 35);
+}
+
+function drawTopView(lx, ly, targetX, miss) {
+  const c = document.getElementById('topCanvas');
+  const ctx = c.getContext('2d');
+  const W = c.width, H = c.height;
+  const margin = Math.max(8, Math.abs(ly) * 2.5, 5);
+  const span = margin * 2;
+  const cx0 = W / 2, cy0 = H / 2;
+  const scale = Math.min((W - 20) / span, (H - 20) / span);
+
+  ctx.fillStyle = '#08111e'; ctx.fillRect(0, 0, W, H);
+
+  // Target circle (1m radius)
+  const r1m = scale; // 1m in pixels
+  ctx.strokeStyle = '#ef5350'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
+  ctx.beginPath(); ctx.arc(cx0, cy0, r1m, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle = 'rgba(239,83,80,0.12)';
+  ctx.beginPath(); ctx.arc(cx0, cy0, r1m, 0, Math.PI * 2); ctx.fill();
+  // Center dot
+  ctx.fillStyle = '#ef5350';
+  ctx.beginPath(); ctx.arc(cx0, cy0, 3, 0, Math.PI * 2); ctx.fill();
+
+  // Axis labels
+  ctx.fillStyle = '#3a5a7a'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(targetX + 'm', cx0, H - 6);
+  ctx.textAlign = 'right'; ctx.fillText('−Y', 12, cy0 + 3);
+  ctx.textAlign = 'left'; ctx.fillText('+Y', W - 4, cy0 + 3);
+
+  // Landing marker
+  const px = cx0 + (lx - targetX) * scale;
+  const py = cy0 - ly * scale;
+  const color = miss <= 1 ? '#66bb6a' : '#ef5350';
+  ctx.strokeStyle = color; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.moveTo(px-6, py-6); ctx.lineTo(px+6, py+6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px+6, py-6); ctx.lineTo(px-6, py+6); ctx.stroke();
+  ctx.fillStyle = color; ctx.font = '9px sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText(`(${lx.toFixed(1)}, ${ly.toFixed(1)})`, px + 8, py - 2);
+
+  // Miss line
+  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash([3, 3]);
+  ctx.beginPath(); ctx.moveTo(cx0, cy0); ctx.lineTo(px, py); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+// ── Animation ─────────────────────────────────────────────────────────────────
+function resizeSideCanvas() {
+  const c = document.getElementById('sideCanvas');
+  const box = c.parentElement;
+  c.width  = box.clientWidth  - 20;
+  c.height = box.clientHeight - 36;
+}
+
+function animateTrajectory(data) {
+  resizeSideCanvas();
+  const traj = data.trajectory;
+  const stats = data.stats;
+  const targetX = stats.target_m;
+  const scale = getSideScale(traj, targetX);
+  const sideC = document.getElementById('sideCanvas');
+  const ctx = sideC.getContext('2d');
+
+  const speedMult = 8;          // 8× real-time
+  let idx = 0;
+  let lastTs = null;
+
+  function frame(ts) {
+    if (!lastTs) lastTs = ts;
+    const elapsed = (ts - lastTs) / 1000;
+    lastTs = ts;
+
+    const simAdv = elapsed * speedMult;
+    const tTarget = traj[idx].t + simAdv;
+    while (idx < traj.length - 1 && traj[idx + 1].t <= tTarget) idx++;
+
+    ctx.clearRect(0, 0, sideC.width, sideC.height);
+    drawSideBase(ctx, scale, targetX, traj);
+    drawSideTrajectory(ctx, scale, traj, idx);
+
+    if (idx < traj.length - 1) {
+      animFrame = requestAnimationFrame(frame);
+      setStatus('running', `비행 중… t=${traj[idx].t.toFixed(2)}s  x=${traj[idx].x.toFixed(1)}m  z=${traj[idx].z.toFixed(1)}m`);
+    } else {
+      // Done
+      drawSideLanding(ctx, scale, stats.landing_x, 0, stats.miss_m, targetX);
+      drawTopView(stats.landing_x, stats.landing_y, targetX, stats.miss_m);
+      updateStats(stats);
+      const ok = stats.success;
+      setStatus(ok ? 'success' : 'miss',
+        ok ? `✓ 과녁 명중! 오차 ${stats.miss_m}m` : `✗ 과녁 미스 — 오차 ${stats.miss_m}m (목표 ${targetX}m)`);
+    }
+  }
+
+  // Draw initial frame
+  ctx.clearRect(0, 0, sideC.width, sideC.height);
+  drawSideBase(ctx, scale, targetX, traj);
+  animFrame = requestAnimationFrame(frame);
+}
+
+// ── Stats update ──────────────────────────────────────────────────────────────
+function updateStats(s) {
+  document.getElementById('s-range').textContent = s.landing_x.toFixed(1);
+  document.getElementById('s-miss').textContent  = s.miss_m.toFixed(2);
+  document.getElementById('s-time').textContent  = s.flight_time.toFixed(2);
+  document.getElementById('s-alt').textContent   = s.max_alt_m.toFixed(1);
+  document.getElementById('s-speed').textContent = s.max_speed_ms.toFixed(1);
+  document.getElementById('s-burn').textContent  = s.burn_time_s.toFixed(3);
+
+  const badge = document.getElementById('result-badge');
+  if (s.success) {
+    badge.className = 'result-badge success';
+    badge.textContent = '✓ 과녁 명중! — 오차 ' + s.miss_m.toFixed(2) + 'm';
+  } else {
+    badge.className = 'result-badge miss';
+    const dir = s.landing_x < s.target_m ? '짧음' : '초과';
+    badge.textContent = `✗ 미스 — ${s.miss_m.toFixed(2)}m 오차 (목표 대비 ${dir})`;
+  }
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+window.addEventListener('resize', () => {
+  if (simResult) {
+    resizeSideCanvas();
+    // Redraw final state
+    const traj = simResult.trajectory;
+    const stats = simResult.stats;
+    const scale = getSideScale(traj, stats.target_m);
+    const sideC = document.getElementById('sideCanvas');
+    const ctx = sideC.getContext('2d');
+    ctx.clearRect(0, 0, sideC.width, sideC.height);
+    drawSideBase(ctx, scale, stats.target_m, traj);
+    drawSideTrajectory(ctx, scale, traj, traj.length - 1);
+    drawSideLanding(ctx, scale, stats.landing_x, 0, stats.miss_m, stats.target_m);
+  } else {
+    drawSideIdle();
+  }
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  drawSideIdle();
+  drawTopIdle();
+});
+</script>
+</body>
+</html>
