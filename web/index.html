@@ -339,6 +339,30 @@ canvas { display: block; border-radius: 4px; }
   color: var(--text-muted);
 }
 
+/* ── Resize handle ───────────────────────────────── */
+.resize-handle {
+  width: 5px;
+  flex-shrink: 0;
+  background: var(--border);
+  cursor: col-resize;
+  transition: background 0.15s;
+  position: relative;
+}
+.resize-handle:hover,
+.resize-handle.dragging { background: var(--accent2); }
+.resize-handle::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 1px;
+  height: 32px;
+  background: var(--accent2);
+  border-radius: 1px;
+  opacity: 0.5;
+}
+
 /* ── Status bar ──────────────────────────────────── */
 .status-bar {
   position: fixed;
@@ -466,10 +490,10 @@ canvas { display: block; border-radius: 4px; }
           <span class="ctrl-val" id="water_ratio_val">33 %</span>
         </div>
         <div class="ctrl-track">
-          <button class="adj-btn" onmousedown="startAdj('water_ratio',-0.01)" onmouseup="stopAdj()" onmouseleave="stopAdj()">−</button>
+          <button class="adj-btn" onmousedown="startAdj('water_ratio',-1)" onmouseup="stopAdj()" onmouseleave="stopAdj()">−</button>
           <input type="range" class="ctrl-slider" id="water_ratio" min="5" max="90" step="1" value="33"
                  oninput="updateCtrl('water_ratio')">
-          <button class="adj-btn" onmousedown="startAdj('water_ratio', 0.01)" onmouseup="stopAdj()" onmouseleave="stopAdj()">+</button>
+          <button class="adj-btn" onmousedown="startAdj('water_ratio', 1)" onmouseup="stopAdj()" onmouseleave="stopAdj()">+</button>
         </div>
       </div>
 
@@ -509,6 +533,9 @@ canvas { display: block; border-radius: 4px; }
     </div>
 
   </aside>
+
+  <!-- ── Resize handle ── -->
+  <div class="resize-handle" id="resizeHandle"></div>
 
   <!-- ── Right display ── -->
   <div class="display">
@@ -1041,6 +1068,55 @@ window.addEventListener('resize', () => {
     drawSideIdle();
   }
 });
+
+// ── Sidebar resize ────────────────────────────────────────────────────────────
+(function() {
+  const handle  = document.getElementById('resizeHandle');
+  const sidebar = document.querySelector('.sidebar');
+  const statusBar = document.querySelector('.status-bar');
+  let dragging = false;
+
+  handle.addEventListener('mousedown', (e) => {
+    dragging = true;
+    handle.classList.add('dragging');
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    e.preventDefault();
+  });
+
+  document.addEventListener('mousemove', (e) => {
+    if (!dragging) return;
+    const w = Math.max(240, Math.min(520, e.clientX));
+    sidebar.style.width = w + 'px';
+    sidebar.style.minWidth = w + 'px';
+    statusBar.style.left = w + 'px';
+  });
+
+  document.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    handle.classList.remove('dragging');
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    // Redraw canvases after resize
+    if (simResult) {
+      const s = simResult.stats;
+      const traj = simResult.trajectory;
+      resizeSideCanvas();
+      const scale = getSideScale(traj, s.target_m);
+      const c = document.getElementById('sideCanvas');
+      const ctx = c.getContext('2d');
+      ctx.clearRect(0, 0, c.width, c.height);
+      drawSideBase(ctx, scale, s.target_m, traj);
+      drawSideTrajectory(ctx, scale, traj, traj.length - 1);
+      drawSideLanding(ctx, scale, s.landing_x, 0, s.miss_m, s.target_m);
+      drawTopView(s.landing_x, s.landing_y, s.target_m, s.miss_m);
+    } else {
+      drawSideIdle();
+      drawTopIdle();
+    }
+  });
+})();
 
 document.addEventListener('DOMContentLoaded', () => {
   resizeSideCanvas();
