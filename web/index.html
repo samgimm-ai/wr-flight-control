@@ -210,12 +210,28 @@ input[type=number]:focus { outline: 1px solid var(--accent); }
   box-shadow: 0 0 6px rgba(79,195,247,0.4);
 }
 
+/* ── Setting row (two-line: label+value / slider) ─── */
+.setting-row {
+  margin-bottom: 10px;
+}
+.setting-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 4px;
+}
+.setting-label { font-size: 0.78rem; color: var(--text-muted); }
+.setting-val   { font-size: 0.78rem; font-weight: 600; color: var(--text); }
+
 /* ── Action buttons ──────────────────────────────── */
 .actions {
+  position: sticky;
+  bottom: 0;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
   padding: 14px;
   display: flex;
   gap: 8px;
-  margin-top: auto;
   flex-shrink: 0;
 }
 .btn {
@@ -268,8 +284,13 @@ canvas { display: block; border-radius: 4px; }
   flex: 1;
   min-height: 0;
 }
-.bottom-row .canvas-box { flex: 0 0 auto; }
-.bottom-row .canvas-box canvas { width: 100%; height: auto; }
+.top-view-box {
+  width: 280px;
+  flex: 0 0 280px;
+  display: flex;
+  flex-direction: column;
+}
+.top-view-box canvas { flex: 1; width: 100%; display: block; border-radius: 4px; }
 
 /* ── Stats panel ──────────────────────────────────── */
 .stats-panel {
@@ -400,29 +421,37 @@ canvas { display: block; border-radius: 4px; }
     <div class="section">
       <div class="section-title">로켓 사양</div>
 
-      <div class="row">
-        <label>병 용량</label>
+      <div class="setting-row">
+        <div class="setting-header">
+          <span class="setting-label">병 용량</span>
+          <span class="setting-val" id="bottle_vol_val">2.00 L</span>
+        </div>
         <input type="range" class="plain-slider" id="bottle_volume_L" min="0.5" max="6" step="0.25" value="2"
                oninput="syncVal(this,'bottle_vol_val')">
-        <span id="bottle_vol_val" class="val">2.0 L</span>
       </div>
-      <div class="row">
-        <label>건조 질량</label>
+      <div class="setting-row">
+        <div class="setting-header">
+          <span class="setting-label">건조 질량</span>
+          <span class="setting-val" id="dry_mass_val">0.30 kg</span>
+        </div>
         <input type="range" class="plain-slider" id="dry_mass_kg" min="0.05" max="1.5" step="0.05" value="0.3"
                oninput="syncVal(this,'dry_mass_val')">
-        <span id="dry_mass_val" class="val">0.30 kg</span>
       </div>
-      <div class="row">
-        <label>노즐 직경</label>
+      <div class="setting-row">
+        <div class="setting-header">
+          <span class="setting-label">노즐 직경</span>
+          <span class="setting-val" id="nozzle_val">9.0 mm</span>
+        </div>
         <input type="range" class="plain-slider" id="nozzle_diameter_mm" min="3" max="20" step="0.5" value="9"
                oninput="syncVal(this,'nozzle_val')">
-        <span id="nozzle_val" class="val">9.0 mm</span>
       </div>
-      <div class="row">
-        <label>항력 계수 (Cd)</label>
+      <div class="setting-row">
+        <div class="setting-header">
+          <span class="setting-label">항력 계수 (Cd)</span>
+          <span class="setting-val" id="cd_val">0.50</span>
+        </div>
         <input type="range" class="plain-slider" id="Cd" min="0.1" max="1.5" step="0.05" value="0.5"
                oninput="syncVal(this,'cd_val')">
-        <span id="cd_val" class="val">0.50</span>
       </div>
     </div>
 
@@ -492,9 +521,9 @@ canvas { display: block; border-radius: 4px; }
 
     <!-- Bottom: top view + stats -->
     <div class="bottom-row">
-      <div class="canvas-box">
+      <div class="canvas-box top-view-box">
         <h2>상면도 (Top View)</h2>
-        <canvas id="topCanvas" width="240" height="200"></canvas>
+        <canvas id="topCanvas"></canvas>
       </div>
 
       <div class="stats-panel">
@@ -855,6 +884,7 @@ function drawSideIdle() {
 
 // ── Top view drawing ──────────────────────────────────────────────────────────
 function drawTopIdle() {
+  resizeTopCanvas();
   const c = document.getElementById('topCanvas');
   const ctx = c.getContext('2d');
   const W = c.width, H = c.height;
@@ -862,11 +892,12 @@ function drawTopIdle() {
   ctx.strokeStyle = '#ef5350'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
   ctx.beginPath(); ctx.arc(W/2, H/2, 20, 0, Math.PI * 2); ctx.stroke();
   ctx.setLineDash([]);
-  ctx.fillStyle = '#3a5a7a'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillStyle = '#3a5a7a'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
   ctx.fillText('과녁', W/2, H/2 + 35);
 }
 
 function drawTopView(lx, ly, targetX, miss) {
+  resizeTopCanvas();
   const c = document.getElementById('topCanvas');
   const ctx = c.getContext('2d');
   const W = c.width, H = c.height;
@@ -913,6 +944,13 @@ function drawTopView(lx, ly, targetX, miss) {
 // ── Animation ─────────────────────────────────────────────────────────────────
 function resizeSideCanvas() {
   const c = document.getElementById('sideCanvas');
+  const box = c.parentElement;
+  c.width  = box.clientWidth  - 20;
+  c.height = box.clientHeight - 36;
+}
+
+function resizeTopCanvas() {
+  const c = document.getElementById('topCanvas');
   const box = c.parentElement;
   c.width  = box.clientWidth  - 20;
   c.height = box.clientHeight - 36;
@@ -988,6 +1026,7 @@ function updateStats(s) {
 window.addEventListener('resize', () => {
   if (simResult) {
     resizeSideCanvas();
+    resizeTopCanvas();
     // Redraw final state
     const traj = simResult.trajectory;
     const stats = simResult.stats;
@@ -1004,7 +1043,9 @@ window.addEventListener('resize', () => {
 });
 
 document.addEventListener('DOMContentLoaded', () => {
+  resizeSideCanvas();
   drawSideIdle();
+  resizeTopCanvas();
   drawTopIdle();
 });
 </script>
