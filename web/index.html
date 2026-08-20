@@ -889,15 +889,65 @@ function drawSideTrajectory(ctx, scale, traj, upTo) {
     ctx.beginPath(); ctx.moveTo(c0.cx, c0.cy); ctx.lineTo(c1.cx, c1.cy); ctx.stroke();
   }
 
-  // Rocket dot
+  // Rocket shape (rotated to match velocity direction)
   const p = traj[upTo];
   const {cx, cy} = toC(p.x, p.z);
-  const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, 7);
-  grad.addColorStop(0, '#fff');
-  grad.addColorStop(0.4, '#4fc3f7');
-  grad.addColorStop(1, 'rgba(79,195,247,0)');
-  ctx.fillStyle = grad;
-  ctx.beginPath(); ctx.arc(cx, cy, 7, 0, Math.PI * 2); ctx.fill();
+  const spd = Math.sqrt(p.vx * p.vx + p.vz * p.vz);
+  // atan2(vx, vz): rotates body-up axis to align with velocity direction in canvas
+  const angle = spd > 0.05 ? Math.atan2(p.vx, p.vz) : Math.PI / 4;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+
+  const W = 3, L = 9;
+
+  // Flame during powered flight
+  if (p.phase === 'LAUNCH') {
+    const fg = ctx.createLinearGradient(0, L, 0, L + 16);
+    fg.addColorStop(0,   'rgba(255,220,80,0.95)');
+    fg.addColorStop(0.5, 'rgba(255,120,20,0.7)');
+    fg.addColorStop(1,   'rgba(255,60,0,0)');
+    ctx.fillStyle = fg;
+    ctx.beginPath();
+    ctx.moveTo(-W + 1, L);
+    ctx.lineTo( W - 1, L);
+    ctx.lineTo(0, L + 16);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Body
+  ctx.fillStyle = '#b0bec5';
+  ctx.fillRect(-W, -L + 4, W * 2, (L - 4) + L);
+
+  // Nose cone
+  ctx.fillStyle = '#ef5350';
+  ctx.beginPath();
+  ctx.moveTo(0, -(L + 5));
+  ctx.lineTo(-W, -L + 4);
+  ctx.lineTo( W, -L + 4);
+  ctx.closePath();
+  ctx.fill();
+
+  // Left fin
+  ctx.fillStyle = '#4fc3f7';
+  ctx.beginPath();
+  ctx.moveTo(-W, L - 3);
+  ctx.lineTo(-W - 6, L + 5);
+  ctx.lineTo(-W, L + 3);
+  ctx.closePath();
+  ctx.fill();
+
+  // Right fin
+  ctx.beginPath();
+  ctx.moveTo( W, L - 3);
+  ctx.lineTo( W + 6, L + 5);
+  ctx.lineTo( W, L + 3);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
 }
 
 function drawSideLanding(ctx, scale, lx, lz, miss, targetX) {
