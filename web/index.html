@@ -260,37 +260,54 @@ input[type=number]:focus { outline: 1px solid var(--accent); }
   gap: 10px;
 }
 
-.canvas-box {
+/* ── Tab view (canvas area) ──────────────────────── */
+.view-box {
+  flex: 1;
+  min-height: 0;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 8px 10px 6px;
-  flex-shrink: 0;
-}
-.canvas-box h2 {
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  margin-bottom: 6px;
-}
-
-canvas { display: block; border-radius: 4px; }
-
-.bottom-row {
-  display: flex;
-  gap: 10px;
-  flex: 1;
-  min-height: 0;
-}
-.top-view-box {
-  width: 280px;
-  flex: 0 0 280px;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
-.top-view-box canvas { flex: 1; width: 100%; display: block; border-radius: 4px; }
+
+.tab-bar {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.tab-btn {
+  padding: 7px 18px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab-btn:hover { color: var(--text); }
+.tab-btn.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
+.canvas-area {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+.canvas-area canvas {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  display: block;
+  border-radius: 0;
+}
 
 /* ── Stats panel ──────────────────────────────────── */
 .stats-panel {
@@ -540,50 +557,49 @@ canvas { display: block; border-radius: 4px; }
   <!-- ── Right display ── -->
   <div class="display">
 
-    <!-- Side view -->
-    <div class="canvas-box" style="flex:1;min-height:0;display:flex;flex-direction:column;">
-      <h2>측면도 (Side View)</h2>
-      <canvas id="sideCanvas" style="flex:1;width:100%;"></canvas>
+    <!-- Tab canvas area -->
+    <div class="view-box">
+      <div class="tab-bar">
+        <button class="tab-btn active" id="tabSide" onclick="showTab('side')">측면도 (Side View)</button>
+        <button class="tab-btn"        id="tabTop"  onclick="showTab('top')">상면도 (Top View)</button>
+      </div>
+      <div class="canvas-area">
+        <canvas id="sideCanvas"></canvas>
+        <canvas id="topCanvas" style="display:none;"></canvas>
+      </div>
     </div>
 
-    <!-- Bottom: top view + stats -->
-    <div class="bottom-row">
-      <div class="canvas-box top-view-box">
-        <h2>상면도 (Top View)</h2>
-        <canvas id="topCanvas"></canvas>
-      </div>
-
-      <div class="stats-panel">
-        <h2>결과</h2>
-        <div class="stat-grid">
-          <div class="stat-item">
-            <div class="stat-label">착지 거리</div>
-            <div><span class="stat-value" id="s-range">—</span><span class="stat-unit">m</span></div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">오차 거리</div>
-            <div><span class="stat-value" id="s-miss">—</span><span class="stat-unit">m</span></div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">비행 시간</div>
-            <div><span class="stat-value" id="s-time">—</span><span class="stat-unit">s</span></div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">최고 고도</div>
-            <div><span class="stat-value" id="s-alt">—</span><span class="stat-unit">m</span></div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">최고 속도</div>
-            <div><span class="stat-value" id="s-speed">—</span><span class="stat-unit">m/s</span></div>
-          </div>
-          <div class="stat-item">
-            <div class="stat-label">연소 시간</div>
-            <div><span class="stat-value" id="s-burn">—</span><span class="stat-unit">s</span></div>
-          </div>
+    <!-- Stats panel -->
+    <div class="stats-panel">
+      <h2>결과</h2>
+      <div class="stat-grid">
+        <div class="stat-item">
+          <div class="stat-label">착지 거리</div>
+          <div><span class="stat-value" id="s-range">—</span><span class="stat-unit">m</span></div>
         </div>
-        <div id="result-badge" class="result-badge neutral">시뮬레이션 대기 중</div>
-        <div id="wind-info" class="wind-info" style="display:none"></div>
+        <div class="stat-item">
+          <div class="stat-label">오차 거리</div>
+          <div><span class="stat-value" id="s-miss">—</span><span class="stat-unit">m</span></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">비행 시간</div>
+          <div><span class="stat-value" id="s-time">—</span><span class="stat-unit">s</span></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">최고 고도</div>
+          <div><span class="stat-value" id="s-alt">—</span><span class="stat-unit">m</span></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">최고 속도</div>
+          <div><span class="stat-value" id="s-speed">—</span><span class="stat-unit">m/s</span></div>
+        </div>
+        <div class="stat-item">
+          <div class="stat-label">연소 시간</div>
+          <div><span class="stat-value" id="s-burn">—</span><span class="stat-unit">s</span></div>
+        </div>
       </div>
+      <div id="result-badge" class="result-badge neutral">시뮬레이션 대기 중</div>
+      <div id="wind-info" class="wind-info" style="display:none"></div>
     </div>
 
   </div>
@@ -614,6 +630,7 @@ let windMode = 'manual';
 let adjTimer = null;
 let simResult = null;
 let animFrame = null;
+let currentTab = 'side';
 
 // ── Sync helpers ─────────────────────────────────────────────────────────────
 function syncVal(el, valId) {
@@ -756,10 +773,7 @@ async function launch() {
 
 // ── Canvas helpers ─────────────────────────────────────────────────────────────
 function clearCanvases() {
-  clearCanvas('sideCanvas');
-  clearCanvas('topCanvas');
-  drawSideIdle();
-  drawTopIdle();
+  showTab('side');
 }
 
 function clearCanvas(id) {
@@ -900,8 +914,8 @@ function drawSideLanding(ctx, scale, lx, lz, miss, targetX) {
 }
 
 function drawSideIdle() {
-  const c = document.getElementById('sideCanvas');
   resizeSideCanvas();
+  const c = document.getElementById('sideCanvas');
   const ctx = c.getContext('2d');
   ctx.fillStyle = '#08111e'; ctx.fillRect(0, 0, c.width, c.height);
   ctx.fillStyle = '#1a3a1a'; ctx.fillRect(0, c.height - 40, c.width, 40);
@@ -917,14 +931,14 @@ function drawTopIdle() {
   const W = c.width, H = c.height;
   ctx.fillStyle = '#08111e'; ctx.fillRect(0, 0, W, H);
   ctx.strokeStyle = '#ef5350'; ctx.lineWidth = 1.5; ctx.setLineDash([4, 3]);
-  ctx.beginPath(); ctx.arc(W/2, H/2, 20, 0, Math.PI * 2); ctx.stroke();
+  ctx.beginPath(); ctx.arc(W/2, H/2, 30, 0, Math.PI * 2); ctx.stroke();
   ctx.setLineDash([]);
+  ctx.fillStyle = '#ef5350'; ctx.beginPath(); ctx.arc(W/2, H/2, 4, 0, Math.PI*2); ctx.fill();
   ctx.fillStyle = '#3a5a7a'; ctx.font = '11px sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText('과녁', W/2, H/2 + 35);
+  ctx.fillText('과녁 (1m 반경)', W/2, H/2 + 50);
 }
 
 function drawTopView(lx, ly, targetX, miss) {
-  resizeTopCanvas();
   const c = document.getElementById('topCanvas');
   const ctx = c.getContext('2d');
   const W = c.width, H = c.height;
@@ -969,18 +983,47 @@ function drawTopView(lx, ly, targetX, miss) {
 }
 
 // ── Animation ─────────────────────────────────────────────────────────────────
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function showTab(tab) {
+  currentTab = tab;
+  document.getElementById('sideCanvas').style.display = tab === 'side' ? 'block' : 'none';
+  document.getElementById('topCanvas').style.display  = tab === 'top'  ? 'block' : 'none';
+  document.getElementById('tabSide').classList.toggle('active', tab === 'side');
+  document.getElementById('tabTop').classList.toggle('active',  tab === 'top');
+
+  if (tab === 'side') {
+    resizeSideCanvas();
+    if (simResult) {
+      const traj = simResult.trajectory, s = simResult.stats;
+      const scale = getSideScale(traj, s.target_m);
+      const ctx = document.getElementById('sideCanvas').getContext('2d');
+      const c = document.getElementById('sideCanvas');
+      ctx.clearRect(0, 0, c.width, c.height);
+      drawSideBase(ctx, scale, s.target_m, traj);
+      drawSideTrajectory(ctx, scale, traj, traj.length - 1);
+      drawSideLanding(ctx, scale, s.landing_x, 0, s.miss_m, s.target_m);
+    } else { drawSideIdle(); }
+  } else {
+    resizeTopCanvas();
+    if (simResult) {
+      const s = simResult.stats;
+      drawTopView(s.landing_x, s.landing_y, s.target_m, s.miss_m);
+    } else { drawTopIdle(); }
+  }
+}
+
 function resizeSideCanvas() {
   const c = document.getElementById('sideCanvas');
-  const box = c.parentElement;
-  c.width  = box.clientWidth  - 20;
-  c.height = box.clientHeight - 36;
+  const area = c.parentElement;
+  c.width  = area.clientWidth;
+  c.height = area.clientHeight;
 }
 
 function resizeTopCanvas() {
   const c = document.getElementById('topCanvas');
-  const box = c.parentElement;
-  c.width  = box.clientWidth  - 20;
-  c.height = box.clientHeight - 36;
+  const area = c.parentElement;
+  c.width  = area.clientWidth;
+  c.height = area.clientHeight;
 }
 
 function animateTrajectory(data) {
@@ -1013,13 +1056,18 @@ function animateTrajectory(data) {
       animFrame = requestAnimationFrame(frame);
       setStatus('running', `비행 중… t=${traj[idx].t.toFixed(2)}s  x=${traj[idx].x.toFixed(1)}m  z=${traj[idx].z.toFixed(1)}m`);
     } else {
-      // Done
+      // Done — 측면도 착지 마커 표시
       drawSideLanding(ctx, scale, stats.landing_x, 0, stats.miss_m, targetX);
-      drawTopView(stats.landing_x, stats.landing_y, targetX, stats.miss_m);
       updateStats(stats);
       const ok = stats.success;
       setStatus(ok ? 'success' : 'miss',
         ok ? `✓ 과녁 명중! 오차 ${stats.miss_m}m` : `✗ 과녁 미스 — 오차 ${stats.miss_m}m (목표 ${targetX}m)`);
+      // 1초 후 상면도로 자동 전환
+      setTimeout(() => {
+        resizeTopCanvas();
+        drawTopView(stats.landing_x, stats.landing_y, targetX, stats.miss_m);
+        showTab('top');
+      }, 1000);
     }
   }
 
@@ -1051,22 +1099,8 @@ function updateStats(s) {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 window.addEventListener('resize', () => {
-  if (simResult) {
-    resizeSideCanvas();
-    resizeTopCanvas();
-    // Redraw final state
-    const traj = simResult.trajectory;
-    const stats = simResult.stats;
-    const scale = getSideScale(traj, stats.target_m);
-    const sideC = document.getElementById('sideCanvas');
-    const ctx = sideC.getContext('2d');
-    ctx.clearRect(0, 0, sideC.width, sideC.height);
-    drawSideBase(ctx, scale, stats.target_m, traj);
-    drawSideTrajectory(ctx, scale, traj, traj.length - 1);
-    drawSideLanding(ctx, scale, stats.landing_x, 0, stats.miss_m, stats.target_m);
-  } else {
-    drawSideIdle();
-  }
+  // Redraw whichever tab is currently visible
+  showTab(currentTab);
 });
 
 // ── Sidebar resize ────────────────────────────────────────────────────────────
@@ -1098,31 +1132,12 @@ window.addEventListener('resize', () => {
     handle.classList.remove('dragging');
     document.body.style.cursor = '';
     document.body.style.userSelect = '';
-    // Redraw canvases after resize
-    if (simResult) {
-      const s = simResult.stats;
-      const traj = simResult.trajectory;
-      resizeSideCanvas();
-      const scale = getSideScale(traj, s.target_m);
-      const c = document.getElementById('sideCanvas');
-      const ctx = c.getContext('2d');
-      ctx.clearRect(0, 0, c.width, c.height);
-      drawSideBase(ctx, scale, s.target_m, traj);
-      drawSideTrajectory(ctx, scale, traj, traj.length - 1);
-      drawSideLanding(ctx, scale, s.landing_x, 0, s.miss_m, s.target_m);
-      drawTopView(s.landing_x, s.landing_y, s.target_m, s.miss_m);
-    } else {
-      drawSideIdle();
-      drawTopIdle();
-    }
+    showTab(currentTab);
   });
 })();
 
 document.addEventListener('DOMContentLoaded', () => {
-  resizeSideCanvas();
-  drawSideIdle();
-  resizeTopCanvas();
-  drawTopIdle();
+  showTab('side');
 });
 </script>
 </body>
