@@ -41,7 +41,7 @@ class Rocket:
     """
 
     # Attitude slew rate limit (rad/s) — physically constrained by aerodynamics/cold-gas
-    MAX_SLEW_RATE = np.radians(90)  # 90°/s
+    MAX_SLEW_RATE = np.radians(180)  # 180°/s (cold-gas thrusters)
 
     def __init__(
         self,
@@ -103,14 +103,14 @@ class Rocket:
         t_dir = self.thrust_direction()
         F_thrust = thrust_main * t_dir
 
-        # --- Auxiliary retro thrust (opposes velocity for braking) ---
+        # --- Auxiliary retro thrust (fires out the nozzle = opposite body axis) ---
+        # When nose-down (pitch = -90°): nozzle points up → thrust is upward.
+        # This brakes vertical descent without killing horizontal velocity.
         F_aux = np.zeros(3)
         if self.aux_engine and aux_throttle > 0.0:
             thrust_aux, _ = self.aux_engine.step(dt * aux_throttle, P_atm)
-            speed = np.linalg.norm(s.velocity)
-            if speed > 1e-3:
-                # Aux rockets always fire against velocity (retro-braking)
-                F_aux = thrust_aux * aux_throttle * (-s.velocity / speed)
+            nozzle_dir = -self.thrust_direction()   # thrust direction = opposite body axis
+            F_aux = thrust_aux * aux_throttle * nozzle_dir
 
         # --- Forces ---
         F_drag = self.aero.drag_force(s.velocity, RHO_AIR)

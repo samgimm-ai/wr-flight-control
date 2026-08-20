@@ -2,12 +2,20 @@
 Guidance: flight phase manager and target generation.
 
 Flight phases:
-  LAUNCH      — main engine firing, follow launch angle
-  COAST       — engine out, ballistic arc
-  FLIP        — attitude reversal to point nozzle downward
-  RETRO_BURN  — auxiliary rockets fire to arrest descent
-  LANDING     — final vertical descent to target
+  LAUNCH      — main engine firing
+  FLIP        — attitude reversal to nose-down (starts at engine cutoff)
+  COAST       — nose-down coast; horizontal velocity carries rocket toward target
+  RETRO_BURN  — aux rockets fire upward to arrest vertical descent
+  LANDING     — final low-speed vertical descent
   LANDED      — mission complete
+
+Key design decisions:
+  - Flip starts immediately at engine cutoff (not at apogee) so there is
+    enough altitude for the retro-burn phase.
+  - Retro-burn fires only when the rocket is descending (vz < threshold),
+    so it never opposes ascent.
+  - Aux thrust direction is along the nozzle axis (upward when nose-down),
+    preserving horizontal velocity.
 """
 
 from __future__ import annotations
@@ -19,8 +27,8 @@ from .navigation import NavState
 
 class Phase(Enum):
     LAUNCH = auto()
-    COAST = auto()
     FLIP = auto()
+    COAST = auto()
     RETRO_BURN = auto()
     LANDING = auto()
     LANDED = auto()
@@ -30,8 +38,8 @@ class GuidanceCommand:
     def __init__(
         self,
         phase: Phase,
-        target_euler: np.ndarray,       # desired attitude [roll, pitch, yaw] rad
-        aux_thrust_fraction: float = 0.0,  # 0–1, aux rocket throttle
+        target_euler: np.ndarray,
+        aux_thrust_fraction: float = 0.0,
         main_thrust_enable: bool = True,
     ):
         self.phase = phase
@@ -42,19 +50,23 @@ class GuidanceCommand:
 
 class Guidance:
     """
-    State-machine based guidance law.
+    State-machine guidance law optimized for maximum horizontal range
+    with controlled vertical landing.
 
     Transitions:
-      LAUNCH      → COAST      when main engine exhausted
-      COAST       → FLIP       when apogee detected (vz ≤ 0) and within glide range
-      FLIP        → RETRO_BURN when attitude aligned downward (pitch ≈ -90°)
-      RETRO_BURN  → LANDING    when velocity nearly zeroed above target
-      LANDING     → LANDED     when altitude ≤ threshold
+      LAUNCH     → FLIP       at engine cutoff
+      FLIP       → COAST      when nose-down within 10° and still ascending (vz > 0)
+      COAST      → RETRO_BURN when descending at > RETRO_VZ_THRESHOLD and alt > MIN_RETRO_ALT
+      RETRO_BURN → LANDING    when vertical speed < LANDING_VZ_THRESHOLD
+      LANDING    → LANDED     when altitude ≤ LANDED_ALT
     """
 
-    FLIP_PITCH_TARGET = -np.pi / 2      # nose down for landing
-    LANDED_ALT_M = 0.3                  # m above ground = "landed"
-    RETRO_STOP_SPEED_MS = 2.0           # m/s — switch to final descent
+    NOSE_DOWN = -np.pi / 2              # target pitch for landing attitude
+
+    RETRO_VZ_THRESHOLD = -3.0           # m/s — start retro when falling faster than this
+    MIN_RETRO_ALT_M = 4.0               # m   — minimum altitude to begin retro-burn
+    LANDING_VZ_THRESHOLD = -2.0         # m/s — transition to slow final descent
+    LANDED_ALT_M = 0.3                  # m
 
     def __init__(self, target_x_m: float, launch_angle_rad: float):
         self.target_x = target_x_m
@@ -64,61 +76,74 @@ class Guidance:
     def update(self, nav: NavState, engine_exhausted: bool) -> GuidanceCommand:
         phase = self.phase
 
+        # ── LAUNCH ──────────────────────────────────────────────────────────
         if phase == Phase.LAUNCH:
             if engine_exhausted:
-                self.phase = Phase.COAST
+                self.phase = Phase.FLIP
             return GuidanceCommand(
                 phase=Phase.LAUNCH,
                 target_euler=np.array([0.0, self.launch_angle, 0.0]),
                 main_thrust_enable=True,
             )
 
-        if phase == Phase.COAST:
-            # Transition to flip at apogee
-            if nav.velocity[2] <= 0.0:
-                self.phase = Phase.FLIP
-            return GuidanceCommand(
-                phase=Phase.COAST,
-                target_euler=np.array([0.0, self.launch_angle, 0.0]),
-                main_thrust_enable=False,
-            )
-
+        # ── FLIP ─────────────────────────────────────────────────────────────
+        # Rotate to nose-down. No thrust — let ballistic arc carry rocket forward.
         if phase == Phase.FLIP:
-            pitch_err = abs(nav.euler[1] - self.FLIP_PITCH_TARGET)
-            if pitch_err < np.radians(10):
-                self.phase = Phase.RETRO_BURN
+            pitch_err = abs(nav.euler[1] - self.NOSE_DOWN)
+            aligned = pitch_err < np.radians(10)
+            if aligned:
+                self.phase = Phase.COAST
             return GuidanceCommand(
                 phase=Phase.FLIP,
-                target_euler=np.array([0.0, self.FLIP_PITCH_TARGET, 0.0]),
+                target_euler=np.array([0.0, self.NOSE_DOWN, 0.0]),
                 main_thrust_enable=False,
             )
 
+        # ── COAST ────────────────────────────────────────────────────────────
+        # No thrust. Horizontal velocity coasts rocket toward target.
+        # Wait for meaningful descent before firing retro.
+        if phase == Phase.COAST:
+            descending_fast = nav.velocity[2] < self.RETRO_VZ_THRESHOLD
+            enough_altitude = nav.position[2] > self.MIN_RETRO_ALT_M
+            if descending_fast and enough_altitude:
+                self.phase = Phase.RETRO_BURN
+            return GuidanceCommand(
+                phase=Phase.COAST,
+                target_euler=np.array([0.0, self.NOSE_DOWN, 0.0]),
+                main_thrust_enable=False,
+            )
+
+        # ── RETRO_BURN ───────────────────────────────────────────────────────
+        # Aux rockets fire upward (nozzle-axis model) to arrest descent.
+        # Throttle is proportional to descent speed — more speed = more thrust.
         if phase == Phase.RETRO_BURN:
-            speed = np.linalg.norm(nav.velocity)
-            if speed < self.RETRO_STOP_SPEED_MS and nav.position[2] < 20.0:
+            vz = nav.velocity[2]
+            if vz > self.LANDING_VZ_THRESHOLD:
                 self.phase = Phase.LANDING
+            # Proportional throttle: full at -10m/s, tapers off as speed drops
+            throttle = float(np.clip(abs(vz) / 10.0, 0.2, 1.0))
             return GuidanceCommand(
                 phase=Phase.RETRO_BURN,
-                target_euler=np.array([0.0, self.FLIP_PITCH_TARGET, 0.0]),
-                aux_thrust_fraction=1.0,
+                target_euler=np.array([0.0, self.NOSE_DOWN, 0.0]),
+                aux_thrust_fraction=throttle,
                 main_thrust_enable=False,
             )
 
+        # ── LANDING ──────────────────────────────────────────────────────────
         if phase == Phase.LANDING:
             if nav.position[2] <= self.LANDED_ALT_M:
                 self.phase = Phase.LANDED
-            # Gentle descent: partial aux thrust to control fall rate
             return GuidanceCommand(
                 phase=Phase.LANDING,
-                target_euler=np.array([0.0, self.FLIP_PITCH_TARGET, 0.0]),
-                aux_thrust_fraction=0.5,
+                target_euler=np.array([0.0, self.NOSE_DOWN, 0.0]),
+                aux_thrust_fraction=0.3,
                 main_thrust_enable=False,
             )
 
-        # LANDED
+        # ── LANDED ───────────────────────────────────────────────────────────
         return GuidanceCommand(
             phase=Phase.LANDED,
-            target_euler=np.array([0.0, self.FLIP_PITCH_TARGET, 0.0]),
+            target_euler=np.array([0.0, self.NOSE_DOWN, 0.0]),
             aux_thrust_fraction=0.0,
             main_thrust_enable=False,
         )
